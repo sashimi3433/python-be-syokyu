@@ -9,6 +9,10 @@ from app.const import TodoItemStatusCode
 from .models.item_model import ItemModel
 from .models.list_model import ListModel
 
+from fastapi import Depends
+from .dependencies import get_db
+from sqlalchemy.orm import Session
+
 DEBUG = os.environ.get("DEBUG", "") == "true"
 
 app = FastAPI(
@@ -82,6 +86,40 @@ class ResponseTodoList(BaseModel):
 def get_echo(message: str, name: str):
     return {"Message": f"{message} {name}!"}
 
+
 @app.get("/health")
 def get_health():
     return {"status": "ok"}
+
+
+@app.get("/lists/{todo_list_id}", tags=["Todoリスト"])
+def get_todo_list(todo_list_id: int, session: Session = Depends(get_db)):
+    db_item = session.query(ListModel).filter(ListModel.id == todo_list_id).first()
+    return db_item
+
+
+@app.post("/lists", tags=["Todoリスト"])
+def post_todo_list(todo_list: NewTodoList, session: Session = Depends(get_db)):
+    db_item = ListModel(title=todo_list.title, description=todo_list.description)
+    session.add(db_item)
+    session.commit()
+    session.refresh(db_item)
+    return db_item
+
+
+@app.put("/lists/{todo_list_id}", tags=["Todoリスト"])
+def put_todo_list(todo_list_id: int, todo_list: UpdateTodoList, session: Session = Depends(get_db)):
+    db_item = session.query(ListModel).filter(ListModel.id == todo_list_id).first()
+    db_item.title = todo_list.title
+    db_item.description = todo_list.description
+    session.commit()
+    session.refresh(db_item)
+    return db_item
+
+
+@app.delete("/lists/{todo_list_id}", tags=["Todoリスト"])
+def delete_todo_list(todo_list_id: int, session: Session = Depends(get_db)):
+    db_item = session.query(ListModel).filter(ListModel.id == todo_list_id).first()
+    session.delete(db_item)
+    session.commit()
+    return {}
